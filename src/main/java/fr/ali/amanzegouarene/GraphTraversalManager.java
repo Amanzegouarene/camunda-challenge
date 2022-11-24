@@ -3,7 +3,6 @@ package fr.ali.amanzegouarene;
 import com.google.gson.Gson;
 import org.camunda.bpm.model.bpmn.Bpmn;
 import org.camunda.bpm.model.bpmn.BpmnModelInstance;
-import org.camunda.bpm.model.bpmn.impl.instance.UserTaskImpl;
 import org.camunda.bpm.model.bpmn.instance.FlowNode;
 import org.camunda.bpm.model.bpmn.instance.SequenceFlow;
 import org.camunda.bpm.model.xml.instance.ModelElementInstance;
@@ -27,31 +26,16 @@ public class GraphTraversalManager {
             System.exit(1);
         }
         //1: fetch the diagram representation
-        HttpClient httpClient  = HttpClient.newBuilder().build();
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create("https://n35ro2ic4d.execute-api.eu-central-1.amazonaws.com/prod/engine-rest/process-definition/key/invoice/xml"))
-                .GET()
-                .build();
-        BpmnJson bpmnJson = null;
-        try {
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            bpmnJson = new Gson().fromJson(response.body(), BpmnJson.class);
-        } catch (IOException | InterruptedException e) {
-            System.out.println("Error happened when sending GET request to retrieve data");
-            System.out.println(e.getMessage());
-            System.exit(1);
-        }
+        BpmnJson bpmnJson = getBpmnJson();
 
         //2: parse the diagram
-        if (bpmnJson == null) {
-            System.out.println("Empty bpmn model !");
-            System.exit(1);
-        }
-        InputStream stream = new ByteArrayInputStream(bpmnJson.bpmn20Xml.getBytes());
-        BpmnModelInstance bpmnModelInstance = Bpmn.readModelFromStream(stream);
-        ModelElementInstance startElement = bpmnModelInstance.getModelElementById(startNodeId);
+        ModelElementInstance startElement = getStartingElementByStartingNodeId(startNodeId, bpmnJson);
 
         //3: out print the traversal path
+        bfsTraversalToPrintPath(startNodeId, endNodeId, startElement);
+    }
+
+    private static void bfsTraversalToPrintPath(String startNodeId, String endNodeId, ModelElementInstance startElement) {
         if (startElement == null) {
             System.out.println("Starting node note found !");
             System.exit(1);
@@ -87,6 +71,34 @@ public class GraphTraversalManager {
             System.out.printf("No path found, starting from %s and ending to %s%n", startNodeId, endNodeId);
             System.exit(1);
         }
+    }
+
+    private static ModelElementInstance getStartingElementByStartingNodeId(String startNodeId, BpmnJson bpmnJson) {
+        if (bpmnJson == null) {
+            System.out.println("Empty bpmn model !");
+            System.exit(1);
+        }
+        InputStream stream = new ByteArrayInputStream(bpmnJson.bpmn20Xml.getBytes());
+        BpmnModelInstance bpmnModelInstance = Bpmn.readModelFromStream(stream);
+        return bpmnModelInstance.getModelElementById(startNodeId);
+    }
+
+    private static BpmnJson getBpmnJson() {
+        HttpClient httpClient  = HttpClient.newBuilder().build();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("https://n35ro2ic4d.execute-api.eu-central-1.amazonaws.com/prod/engine-rest/process-definition/key/invoice/xml"))
+                .GET()
+                .build();
+        BpmnJson bpmnJson = null;
+        try {
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            bpmnJson = new Gson().fromJson(response.body(), BpmnJson.class);
+        } catch (IOException | InterruptedException e) {
+            System.out.println("Error happened when sending GET request to retrieve data");
+            System.out.println(e.getMessage());
+            System.exit(1);
+        }
+        return bpmnJson;
     }
 
     private static boolean isEmpty(String arg) {
