@@ -32,7 +32,40 @@ public class GraphTraversalManager {
         ModelElementInstance startElement = getStartingElementByStartingNodeId(startNodeId, bpmnJson);
 
         //3: out print the traversal path
-        bfsTraversalToPrintPath(startNodeId, endNodeId, startElement);
+//        bfsTraversalToPrintPath(startNodeId, endNodeId, startElement);
+        dfsTraversalToPrintPath(startNodeId, endNodeId, startElement);
+    }
+
+    private static void dfsTraversalToPrintPath(String startNodeId, String endNodeId, ModelElementInstance startElement) {
+        if (startElement == null) {
+            System.out.println("Starting node note found !");
+            System.exit(1);
+        }
+        Set<String> visited = new LinkedHashSet<>();
+
+        visited.add(startElement.getAttributeValue("id"));
+        dfsFindPathAndPrint(((FlowNode) startElement), endNodeId, visited, startNodeId);
+        // If path found, it would be printed by dfsFindPathAndPrint function and process finished, otherwise:
+        System.out.printf("No path found, starting from %s and ending to %s%n", startNodeId, endNodeId);
+        System.exit(1);
+    }
+
+    private static void dfsFindPathAndPrint(FlowNode startNode, final String endNodeId, Set<String> visited, final String startNodeId) {
+        String sourceId = startNode.getAttributeValue("id");
+        Set<String> cloneVisited = new LinkedHashSet<>();
+        cloneVisited.addAll(visited);
+        cloneVisited.add(sourceId);
+        if(endNodeId.equals(sourceId)){
+            System.out.printf("The path from %s to %s is:%n%s", startNodeId, endNodeId, cloneVisited);
+            System.exit(0);
+        }
+        for (SequenceFlow sequenceFlow : startNode.getOutgoing()) {
+            if (!cloneVisited.contains(sequenceFlow.getTarget().getAttributeValue("id"))) {
+                dfsFindPathAndPrint(sequenceFlow.getTarget(), endNodeId, cloneVisited, startNodeId);
+            }
+        }
+
+
     }
 
     private static void bfsTraversalToPrintPath(String startNodeId, String endNodeId, ModelElementInstance startElement) {
@@ -46,9 +79,7 @@ public class GraphTraversalManager {
         boolean pathFound = false;
         visited.add(startElement.getAttributeValue("id"));
         Collection<SequenceFlow> sequenceFlow = ((FlowNode) startElement).getOutgoing();
-        for (SequenceFlow flow : sequenceFlow) {
-            stack.push(flow.getTarget());
-        }
+        sequenceFlow.stream().map(SequenceFlow::getTarget).forEach(stack::push);
 
         while (!stack.isEmpty() && !pathFound){
             FlowNode currentNode = stack.pop();
